@@ -33,7 +33,7 @@ catkin build
 ## Launching
 Type the following command to run the node. Make sure that the gimbal is connected properly, the Linux permissions regarding the serial interface are correct (this depends on your distro) and the config features the correct device and baudrate (default setting should be fine as far as I know).
 ```
-roslaunch gremsy_bringup gimbal.launch
+roslaunch gremsy_base gimbal.launch
 ```
 
 ## ROS Message API
