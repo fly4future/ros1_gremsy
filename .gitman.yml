@@ -6,7 +6,7 @@ sources:
     type: git
     params:
     sparse_paths:
-      - src/gSDK
+      - 
     links:
       - source: ''
         target: src/gSDK

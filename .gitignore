@@ -1,4 +1,8 @@
 # Prerequisites
+.gitman
+.gitattributes
+*.swp
+*.swo
 *.d
 
 # Compiled Object files
