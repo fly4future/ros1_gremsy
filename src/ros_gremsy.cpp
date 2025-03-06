@@ -136,6 +136,7 @@ void GimbalNode::gimbalGoalTimerCallback(const ros::TimerEvent& event)
   {
     z += yaw_difference_;
   }
+  /* ROS_INFO("[%s]: Moving gimbal..", ros::this_node::getName().c_str()); */
 
   gimbal_interface_->set_gimbal_move(RAD_TO_DEG * goals_.vector.y, RAD_TO_DEG * goals_.vector.x, RAD_TO_DEG * z);
 }
@@ -146,6 +147,7 @@ void GimbalNode::gimbalGoalTimerCallback(const ros::TimerEvent& event)
 
 void GimbalNode::setGoalsCallback(geometry_msgs::Vector3Stamped message)
 {
+  /* ROS_INFO("[%s]: Received message ", ros::this_node::getName().c_str()); */
   goals_ = message;
 }
 
@@ -230,7 +232,6 @@ int main(int argc, char** argv)
   ros::NodeHandle nh;
   ros::NodeHandle pnh("~");
   GimbalNode n(nh, pnh);
-
   return 0;
 }
 
