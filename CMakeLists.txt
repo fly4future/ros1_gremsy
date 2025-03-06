@@ -11,29 +11,36 @@ find_package(catkin REQUIRED COMPONENTS
         std_msgs
         geometry_msgs
         sensor_msgs
-        )
+)
 
 find_package(Eigen3 REQUIRED)
 
 generate_dynamic_reconfigure_options(
-        cfg/ROSGremsy.cfg
+  cfg/ROSGremsy.cfg
 )
 
-catkin_package(
-        INCLUDE_DIRS include
-)
-
-include_directories(
-        include
-        ${catkin_INCLUDE_DIRS}
+catkin_package(INCLUDE_DIRS 
+  include
 )
 
 include_directories(
-        src/gSDK_Linux/src/mavlink/include/mavlink/v2.0
-        src/gSDK_Linux/src/
+ include
+ ${catkin_INCLUDE_DIRS}
 )
 
-set(SOURCES src/ros_gremsy.cpp src/gSDK_Linux/src/serial_port.cpp src/gSDK_Linux/src/gimbal_interface.cpp)
+include_directories(
+ src/gSDK/src/mavlink/include/mavlink/v2.0
+ src/gSDK/src/
+)
+
+set(SOURCES 
+  src/ros_gremsy.cpp 
+  src/gSDK/src/serial_port.cpp 
+  src/gSDK/src/gimbal_interface.cpp
+  src/gSDK/src/gimbal_protocol.cpp
+  src/gSDK/src/gimbal_protocol_v1.cpp
+  src/gSDK/src/gimbal_protocol_v2.cpp
+)
 
 add_executable(GimbalNode ${SOURCES})
 

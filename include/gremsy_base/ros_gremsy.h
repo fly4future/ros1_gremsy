@@ -34,12 +34,12 @@ private:
   // Calback to set a new gimbal position
   void setGoalsCallback(geometry_msgs::Vector3Stamped message);
   // Converts
-  sensor_msgs::Imu convertImuMavlinkMessageToROSMessage(mavlink_raw_imu_t message);
+  sensor_msgs::Imu convertImuMavlinkMessageToROSMessage(Gimbal_Interface::imu_t message);
   Eigen::Quaterniond convertYXZtoQuaternion(double roll, double pitch, double yaw);
   // Maps integer mode
-  control_gimbal_axis_input_mode_t convertIntToAxisInputMode(int mode);
+  /* control_gimbal_axis_input_mode_t convertIntToAxisInputMode(int mode); */
   // Maps integer mode
-  control_gimbal_mode_t convertIntGimbalMode(int mode);
+  /* control_gimbal_mode_t convertIntGimbalMode(int mode); */
 
   // Gimbal SDK
   Gimbal_Interface* gimbal_interface_;
@@ -48,7 +48,7 @@ private:
   // Current config
   gremsy_base::ROSGremsyConfig config_;
   // Publishers
-  ros::Publisher imu_pub, encoder_pub, mount_orientation_incl_global_yaw, mount_orientation_incl_local_yaw;
+  ros::Publisher imu_pub, encoder_pub, gimbal_attitude_pub_, mount_orientation_incl_local_yaw;
   // Subscribers
   ros::Subscriber gimbal_goal_sub;
 
