@@ -1,0 +1,12 @@
+location: .gitman
+sources:
+  - repo: https://github.com/Gremsy/gSDK.git 
+    name: gSDK 
+    rev: master 
+    type: git
+    params:
+    sparse_paths:
+      - src/gSDK
+    links:
+      - source: ''
+        target: src/gSDK
