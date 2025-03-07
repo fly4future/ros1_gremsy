@@ -27,7 +27,7 @@ GimbalNode::GimbalNode(ros::NodeHandle nh, ros::NodeHandle pnh)
   // Define SDK objects
   serial_port_ = new Serial_Port(config_.device.c_str(), config_.baudrate);
 
-  gimbal_interface_ = new Gimbal_Interface(serial_port_, 1, MAV_COMP_ID_ONBOARD_COMPUTER, Gimbal_Interface::MAVLINK_GIMBAL_V2, MAVLINK_COMM_0);
+  gimbal_interface_ = new Gimbal_Interface(serial_port_, 1, MAV_COMP_ID_ONBOARD_COMPUTER, Gimbal_Interface::MAVLINK_GIMBAL_V2);
 
   // Start ther serial interface and the gimbal SDK
   serial_port_->start();
@@ -60,6 +60,7 @@ GimbalNode::GimbalNode(ros::NodeHandle nh, ros::NodeHandle pnh)
     case 1: {
       ROS_INFO("[%s]: Lock mode chosen ", ros::this_node::getName().c_str());
       gimbal_interface_->set_gimbal_lock_mode_sync();
+      break;
     }
 
     default:

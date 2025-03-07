@@ -3,7 +3,7 @@ device: "/dev/gimbal"
 baudrate: 115200
 state_poll_rate: 10.0
 goal_push_rate: 60.0
-gimbal_mode: 1
+gimbal_mode: 0
 tilt_axis_input_mode: 2
 roll_axis_input_mode: 2
 pan_axis_input_mode: 2
