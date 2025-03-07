@@ -1,0 +1,11 @@
+#Request
+float64 pitch
+float64 roll
+float64 yaw
+---
+#Response
+bool success
+string message
+
+
+

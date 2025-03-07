@@ -83,11 +83,9 @@ GimbalNode::GimbalNode(ros::NodeHandle nh, ros::NodeHandle pnh)
 
   /* gimbal_interface_->set_gimbal_axes_mode(tilt_axis_mode, roll_axis_mode, pan_axis_mode); */
 
-  ros::Timer poll_timer = nh.createTimer(ros::Duration(1 / config_.state_poll_rate), &GimbalNode::gimbalStateTimerCallback, this);
-
-  ros::Timer goal_timer = nh.createTimer(ros::Duration(1 / config_.goal_push_rate), &GimbalNode::gimbalGoalTimerCallback, this);
-
-  ros::spin();
+  ros::Timer poll_timer = nh.createTimer(ros::Rate(100), &GimbalNode::gimbalStateTimerCallback, this);
+  ros::Timer goal_timer = nh.createTimer(ros::Rate(100), &GimbalNode::gimbalGoalTimerCallback, this);
+  /* ros::spin(); */
 }
 
 //}
@@ -96,6 +94,7 @@ GimbalNode::GimbalNode(ros::NodeHandle nh, ros::NodeHandle pnh)
 
 void GimbalNode::gimbalStateTimerCallback(const ros::TimerEvent& event)
 {
+  ROS_INFO("[%s]: Processing gimbal data", ros::this_node::getName().c_str());
   // Publish Gimbal IMU
   auto imu_mav = gimbal_interface_->get_gimbal_raw_imu();
   sensor_msgs::Imu imu_ros_mag = convertImuMavlinkMessageToROSMessage(imu_mav);
@@ -145,7 +144,7 @@ void GimbalNode::gimbalGoalTimerCallback(const ros::TimerEvent& event)
   /* { */
   /*   z += yaw_difference_; */
   /* } */
-  ROS_INFO("[%s]: Moving gimbal..", ros::this_node::getName().c_str());
+  /* ROS_INFO("[%s]: Moving gimbal..", ros::this_node::getName().c_str()); */
   gimbal_interface_->set_gimbal_rotation_sync(goals_.vector.x, goals_.vector.y, goals_.vector.z);
 }
 
@@ -155,7 +154,7 @@ void GimbalNode::gimbalGoalTimerCallback(const ros::TimerEvent& event)
 
 void GimbalNode::setGoalsCallback(geometry_msgs::Vector3Stamped message)
 {
-  /* ROS_INFO("[%s]: Received message ", ros::this_node::getName().c_str()); */
+  ROS_INFO("[%s]: Received message ", ros::this_node::getName().c_str());
   goals_ = message;
 }
 
@@ -231,7 +230,7 @@ void GimbalNode::reconfigureCallback(gremsy_base::ROSGremsyConfig& config, uint3
 
 //}
 
-/* main() //{ */
+/* main() //{ */ 
 
 int main(int argc, char** argv)
 {
@@ -240,6 +239,7 @@ int main(int argc, char** argv)
   ros::NodeHandle nh;
   ros::NodeHandle pnh("~");
   GimbalNode n(nh, pnh);
+  ros::spin();
   return 0;
 }
 

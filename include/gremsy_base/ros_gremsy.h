@@ -7,7 +7,7 @@
 #include <geometry_msgs/Quaternion.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <dynamic_reconfigure/server.h>
-#include <gremsy_base/ROSGremsyConfig.h>
+#include <ros_gremsy/ROSGremsyConfig.h>
 #include <cmath>
 #include <Eigen/Geometry>
 #include <boost/bind.hpp>
