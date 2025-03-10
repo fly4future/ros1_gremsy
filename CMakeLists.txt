@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(ros_gremsy)
+project(ros1_gremsy)
 set(CMAKE_CXX_STANDARD 17)
 
 set(CATKIN_DEPENDENCIES
@@ -56,7 +56,7 @@ include_directories(
 )
 
 add_library(GremsyDriverNode
-    src/ros_gremsy_nodelet.cpp
+    src/ros1_gremsy_nodelet.cpp
     src/gSDK/src/gimbal_interface.cpp
     src/gSDK/src/serial_port.cpp
     src/gSDK/src/gimbal_protocol.cpp
@@ -65,7 +65,7 @@ add_library(GremsyDriverNode
 )
 
 set(SOURCES 
-  src/ros_gremsy.cpp 
+  src/ros1_gremsy.cpp 
   src/gSDK/src/serial_port.cpp 
   src/gSDK/src/gimbal_interface.cpp
   src/gSDK/src/gimbal_protocol.cpp

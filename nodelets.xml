@@ -1,5 +1,5 @@
 <library path="lib/libGremsyDriverNode">
-  <class name="ros_gremsy/GremsyDriver" type="ros_gremsy::GremsyDriver" base_class_type="nodelet::Nodelet">
+  <class name="ros1_gremsy/GremsyDriver" type="ros1_gremsy::GremsyDriver" base_class_type="nodelet::Nodelet">
     <description>GremsyDriver nodelet</description>
   </class>
 </library>

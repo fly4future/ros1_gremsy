@@ -1,4 +1,4 @@
-#include <gremsy_base/ros_gremsy.h>
+#include <gremsy_base/ros1_gremsy.h>
 
 /* GimbalNode //{ */
 
@@ -16,13 +16,13 @@ GimbalNode::GimbalNode(ros::NodeHandle nh, ros::NodeHandle pnh)
   goals_.vector.z = 0;
 
   // Advertive Publishers
-  imu_pub = nh.advertise<sensor_msgs::Imu>("/ros_gremsy/imu/data", 10);
-  encoder_pub = nh.advertise<geometry_msgs::Vector3Stamped>("/ros_gremsy/encoder", 1000);
-  gimbal_attitude_pub_ = nh.advertise<geometry_msgs::Quaternion>("/ros_gremsy/gimbal_attitude", 10);
+  imu_pub = nh.advertise<sensor_msgs::Imu>("/ros1_gremsy/imu/data", 10);
+  encoder_pub = nh.advertise<geometry_msgs::Vector3Stamped>("/ros1_gremsy/encoder", 1000);
+  gimbal_attitude_pub_ = nh.advertise<geometry_msgs::Quaternion>("/ros1_gremsy/gimbal_attitude", 10);
 
 
   // Register Subscribers
-  gimbal_goal_sub = nh.subscribe("/ros_gremsy/goals", 1, &GimbalNode::setGoalsCallback, this);
+  gimbal_goal_sub = nh.subscribe("/ros1_gremsy/goals", 1, &GimbalNode::setGoalsCallback, this);
 
   // Define SDK objects
   serial_port_ = new Serial_Port(config_.device.c_str(), config_.baudrate);
