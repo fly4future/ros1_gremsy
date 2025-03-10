@@ -15,10 +15,16 @@ The node publishes the gimbals encoder positions, imu measurements, and the came
 
 ## Setup
 Run the following commands to clone this repository and update all submodules (needed for the external gSDK repository).
+
+We use `gitman` to handle submodules of this repository.
+The list of submodules is given in `.gitman.yml` file.
+
 ```
-git clone --recurse-submodules https://github.com/Flova/ros_gremsy
-cd ros_gremsy
+git clone https://github.com/fly4future/ros1_gremsy.git
+cd ros1_gremsy
+git pull && gitman update
 ```
+to update all the submodules (default: will update all repositories to its predefined branches).
 
 Now you need to install all dependencies using rosdep. To execute this command make sure that the correct catkin workspace is sourced and the repository you just cloned is (linked) inside the `src` directory.
 ```
@@ -32,20 +38,21 @@ catkin build
 
 ## Launching
 Type the following command to run the node. Make sure that the gimbal is connected properly, the Linux permissions regarding the serial interface are correct (this depends on your distro) and the config features the correct device and baudrate (default setting should be fine as far as I know).
+Node:
 ```
-roslaunch gremsy_base gimbal.launch
+roslaunch ros1_gremsy gimbal.launch
 ```
-
+Nodelet:
+```
+roslaunch ros1_gremsy gremsy_nodelet.launch
+```
 ## ROS Message API
 The node publishes:
-- `/ros_gremsy/imu/data` with a [sensor_msgs/Imu](http://docs.ros.org/melodic/api/sensor_msgs/html/msg/Imu.html) message containing the raw gyro and accelerometer values.
-- `/ros_gremsy/encoder` with a [geometry_msgs/Vector3Stamped](http://docs.ros.org/melodic/api/geometry_msgs/html/msg/Vector3Stamped.html) message containing the encode values around the x (roll), y (pitch) and z (yaw) axis.
-- `/ros_gremsy/mount_orientation_global_yaw` with a [geometry_msgs/Quaternion](http://docs.ros.org/melodic/api/geometry_msgs/html/msg/Quaternion.html) message representing the camera mount orientation in the global frame. This measurement is imprecise in the yaw axis because of the gyro drift.
-- `/ros_gremsy/mount_orientation_local_yaw` with a [geometry_msgs/Quaternion](http://docs.ros.org/melodic/api/geometry_msgs/html/msg/Quaternion.html) message representing the camera mount orientation in the global frame except for the yaw axis which is provided relative to the gimbals mount on the vehicle or robot.
-
+- `/ros1_gremsy/encoder` with a [geometry_msgs/Vector3Stamped](http://docs.ros.org/melodic/api/geometry_msgs/html/msg/Vector3Stamped.html) message containing the encode values around the x (roll), y (pitch) and z (yaw) axis.
+- `/ros1_gremsy/gimbal_attitude_quaternion` with a [geometry_msgs/Quaternion](http://docs.ros.org/melodic/api/geometry_msgs/html/msg/Quaternion.html) message representing the camera mount orientation in Quaternion representation, in the global frame except for the yaw axis which is provided relative to the gimbals mount on the vehicle or robot.
+- `/ros1_gremsy/gimbal_attitude_euler` with a [geometry_msgs/Vector3Stamped
+](http://docs.ros.org/melodic/api/geometry_msgs/html/msg/Vector3Stamped.html) message representing the camera mount orientation using Euler Angles,  in the global frame except for the yaw axis which is provided relative to the gimbals mount on the vehicle or robot.
+- `/ros1_gremsy/set_gimbal_attitude` expects a [geometry_msgs/Vector3Stamped](http://docs.ros.org/melodic/api/geometry_msgs/html/msg/Vector3Stamped.html) message containing the desired angles for each axis. 
 The node receives:
-- `/ros_gremsy/goals` expects a [geometry_msgs/Vector3Stamped](http://docs.ros.org/melodic/api/geometry_msgs/html/msg/Vector3Stamped.html) message containing the desired angles for each axis. The frame for each axis (local or global), as well as the stabilization mode, can be configured in the `config.yaml` file.
+- `/ros1_gremsy/goals` expects a [geometry_msgs/Vector3Stamped](http://docs.ros.org/melodic/api/geometry_msgs/html/msg/Vector3Stamped.html) message containing the desired angles for each axis. The frame for each axis (local or global), as well as the stabilization mode, can be configured in the `config.yaml` file.
 
-## Further work
-- Better dynamic reconfiguration
-- Better handling of gimbal timestamps
