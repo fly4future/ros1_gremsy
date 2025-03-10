@@ -16,5 +16,6 @@
   <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg manager)"/>
 
     <node pkg="nodelet" type="nodelet" name="gremsy_driver" args="$(arg nodelet) ros1_gremsy/GremsyDriver $(arg nodelet_manager)" launch-prefix="$(arg launch_prefix_debug)" output="screen">
+      <rosparam command="load" file="$(find ros1_gremsy)/config/config.yaml"/>
     </node>
 </launch>

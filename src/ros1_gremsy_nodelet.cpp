@@ -42,10 +42,11 @@ namespace ros1_gremsy
   private:
     bool is_initialized_ = false;
     /* ros parameters */
-    int _rate_timer_controller_ = 100;
-    std::string _gimbal_sdk_device_id_ = "/dev/gimbal";
+    double _rate_timer_controller_ = 60;
+    double _state_timer_controller_ = 10;
+    std::string _gimbal_sdk_device_id_ = "/dev/ttyUSB0";
     int _gimbal_sdk_baudrate_ = 115200;
-    std::string _gimbal_sdk_mode_ = "follow";
+    int _gimbal_sdk_mode_ = 2;
 
     std::mutex mutex_gimbal_;
 
@@ -61,7 +62,6 @@ namespace ros1_gremsy
     // | --------------------- subscribers -------------------- |
     ros::Subscriber goal_sub_;
     // | --------------------- publishers -------------------- |
-    ros::Publisher imu_pub_;
     ros::Publisher encoder_pub_;
     ros::Publisher gimbal_attitude_pub_quat_;
     ros::Publisher gimbal_attitude_pub_euler_;
@@ -99,9 +99,15 @@ namespace ros1_gremsy
     f = boost::bind(&GremsyDriver::reconfigureCallback, this, _1, _2);
     server.setCallback(f);
 
+    // Load params
+    _gimbal_sdk_device_id_ = config_.device;
+    _gimbal_sdk_baudrate_ = config_.baudrate;
+    _gimbal_sdk_mode_ = config_.gimbal_mode;
+    _rate_timer_controller_ = config_.goal_push_rate;
+    _state_timer_controller_ = config_.state_poll_rate;
+
     // | ------------------ initialize subscribers ----------------- |
     // Advertive Publishers
-    imu_pub_ = nh.advertise<sensor_msgs::Imu>("/ros1_gremsy/imu/data", 10);
     encoder_pub_ = nh.advertise<geometry_msgs::Vector3Stamped>("/ros1_gremsy/encoder", 1000);
     gimbal_attitude_pub_quat_ = nh.advertise<geometry_msgs::Quaternion>("/ros1_gremsy/gimbal_attitude_quaternion", 10);
     gimbal_attitude_pub_euler_ = nh.advertise<geometry_msgs::Vector3Stamped>("/ros1_gremsy/gimbal_attitude_euler", 10);
@@ -109,10 +115,10 @@ namespace ros1_gremsy
     // Register Subscribers
     goal_sub_ = nh.subscribe("/ros1_gremsy/goals", 1, &GremsyDriver::setGoalsCallback, this);
 
+    ROS_INFO_STREAM("[GremsyDriver]: Config rate: " << config_.goal_push_rate);
     // | -------------------- initialize timers ------------------- |
-    timer_controller_ = nh.createTimer(ros::Rate(60), &GremsyDriver::callbackTimerGremsyDriver, this);
-    timer_status_ = nh.createTimer(ros::Rate(10), &GremsyDriver::gimbalStateTimerCallback, this);
-
+    timer_controller_ = nh.createTimer(ros::Rate(config_.goal_push_rate), &GremsyDriver::callbackTimerGremsyDriver, this);
+    timer_status_ = nh.createTimer(ros::Rate(config_.state_poll_rate), &GremsyDriver::gimbalStateTimerCallback, this);
 
     ss_set_gimbal_attitude_ = nh.advertiseService("set_gimbal_attitude", &GremsyDriver::setGimbalAttitude, this);
 
@@ -148,50 +154,23 @@ namespace ros1_gremsy
       ros::Duration(0.2).sleep();
     }
 
-    /*        To avoid found bug of PixyLR with SDK           */
-    Gimbal_Interface::gimbal_config_axis_t tilt_setting = gimbal_interface_->get_gimbal_config_tilt_axis();
-
-    gimbal_interface_->set_gimbal_config_tilt_axis(tilt_setting);
-
-    Gimbal_Interface::gimbal_config_axis_t pan_setting = gimbal_interface_->get_gimbal_config_pan_axis();
-
-    gimbal_interface_->set_gimbal_config_tilt_axis(pan_setting);
-
-    Gimbal_Interface::gimbal_config_axis_t roll_setting = gimbal_interface_->get_gimbal_config_roll_axis();
-
-    gimbal_interface_->set_gimbal_config_roll_axis(roll_setting);
-
-
-    // gimbal_interface_->set_gimbal_config_tilt_axis();
-    /* Set gimbal control modes */
-    if (_gimbal_sdk_mode_ == "follow")
+    switch (_gimbal_sdk_mode_)
     {
-
-      ROS_WARN("[GremsyDriver]: Setting gimbal to follow mode.");
-      gimbal_interface_->set_gimbal_follow_mode_sync();
-    } else
-    {
-
-      if (_gimbal_sdk_mode_ == "lock")
-      {
-
+      case 1: {
         ROS_WARN("[GremsyDriver]: Setting gimbal to lock mode.");
         gimbal_interface_->set_gimbal_lock_mode_sync();
-      } else
-      {
-
+        break;
+      }
+      case 2: {
+        ROS_WARN("[GremsyDriver]: Setting gimbal to follow mode.");
+        gimbal_interface_->set_gimbal_follow_mode_sync();
+        break;
+      }
+      default: {
         ROS_ERROR("[GremsyDriver]: Incorrect gimbal mode. Check config file. Shutting down node.");
         ros::shutdown();
       }
     }
-
-    /* Configure the gimbal to send angles as encoder values */
-    gimbal_interface_->set_gimbal_encoder_type_send(false);
-
-
-    /*     // Ask afzal why this is here */
-    /*     // timer_controller_ = nh.createTimer(ros::Rate(_rate_timer_controller_), &GremsyDriver::callbackTimerGremsyDriver, this); */
-
     ROS_INFO_ONCE("[GremsyDriver]: Node initialized");
     is_initialized_ = true;
   }
