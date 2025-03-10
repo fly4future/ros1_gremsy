@@ -25,8 +25,6 @@
 #include "gimbal_interface.h"
 #include "serial_port.h"
 
-/* #include <ros1_gremsy/> */
-
 #define DEG_TO_RAD (M_PI / 180.0)
 #define RAD_TO_DEG (180.0 / M_PI)
 
@@ -55,7 +53,7 @@ namespace ros1_gremsy
     Gimbal_Interface* gimbal_interface_;
     /* Serial Interface */
     Serial_Port* serial_port_;
-    gremsy_base::ROSGremsyConfig config_;
+    ros1_gremsy::ROSGremsyConfig config_;
 
     // Goals
     geometry_msgs::Vector3Stamped goals_;
@@ -78,7 +76,7 @@ namespace ros1_gremsy
     sensor_msgs::Imu convertImuMavlinkMessageToROSMessage(Gimbal_Interface::imu_t message);
     Eigen::Quaterniond convertYXZtoQuaternion(double roll, double pitch, double yaw);
     void setGoalsCallback(geometry_msgs::Vector3Stamped message);
-    void reconfigureCallback(gremsy_base::ROSGremsyConfig& config, uint32_t level);
+    void reconfigureCallback(ros1_gremsy::ROSGremsyConfig& config, uint32_t level);
     bool setGimbalAttitude(ros1_gremsy::SetGimbalAttitude::Request& req, ros1_gremsy::SetGimbalAttitude::Response& res);
     ros::Timer timer_controller_;
     ros::Timer timer_status_;
@@ -96,8 +94,8 @@ namespace ros1_gremsy
     ros::Time::waitForValid();
 
     /* // Initialize dynamic-reconfigure */
-    dynamic_reconfigure::Server<gremsy_base::ROSGremsyConfig> server(nh);
-    dynamic_reconfigure::Server<gremsy_base::ROSGremsyConfig>::CallbackType f;
+    dynamic_reconfigure::Server<ros1_gremsy::ROSGremsyConfig> server(nh);
+    dynamic_reconfigure::Server<ros1_gremsy::ROSGremsyConfig>::CallbackType f;
     f = boost::bind(&GremsyDriver::reconfigureCallback, this, _1, _2);
     server.setCallback(f);
 
@@ -325,7 +323,7 @@ namespace ros1_gremsy
 
   /* reconfigureCallback() //{ */
 
-  void GremsyDriver::reconfigureCallback(gremsy_base::ROSGremsyConfig& config, uint32_t level)
+  void GremsyDriver::reconfigureCallback(ros1_gremsy::ROSGremsyConfig& config, uint32_t level)
   {
     config_ = config;
   }

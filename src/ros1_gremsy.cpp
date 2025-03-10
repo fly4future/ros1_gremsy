@@ -5,8 +5,8 @@
 GimbalNode::GimbalNode(ros::NodeHandle nh, ros::NodeHandle pnh)
 {
   // Initialize dynamic-reconfigure
-  dynamic_reconfigure::Server<gremsy_base::ROSGremsyConfig> server(pnh);
-  dynamic_reconfigure::Server<gremsy_base::ROSGremsyConfig>::CallbackType f;
+  dynamic_reconfigure::Server<ros1_gremsy::ROSGremsyConfig> server(pnh);
+  dynamic_reconfigure::Server<ros1_gremsy::ROSGremsyConfig>::CallbackType f;
   f = boost::bind(&GimbalNode::reconfigureCallback, this, _1, _2);
   server.setCallback(f);
 
@@ -16,10 +16,11 @@ GimbalNode::GimbalNode(ros::NodeHandle nh, ros::NodeHandle pnh)
   goals_.vector.z = 0;
 
   // Advertive Publishers
-  imu_pub = nh.advertise<sensor_msgs::Imu>("/ros1_gremsy/imu/data", 10);
   encoder_pub = nh.advertise<geometry_msgs::Vector3Stamped>("/ros1_gremsy/encoder", 1000);
-  gimbal_attitude_pub_ = nh.advertise<geometry_msgs::Quaternion>("/ros1_gremsy/gimbal_attitude", 10);
+  gimbal_attitude_quat_pub_ = nh.advertise<geometry_msgs::Quaternion>("/ros1_gremsy/gimbal_attitude_quaternion", 10);
+  gimbal_attitude_euler_pub_ = nh.advertise<geometry_msgs::Vector3Stamped>("/ros1_gremsy/gimbal_attitude_euler", 10);
 
+  ss_set_gimbal_attitude_ = nh.advertiseService("set_gimbal_attitude", &GimbalNode::setGimbalAttitude, this);
 
   // Register Subscribers
   gimbal_goal_sub = nh.subscribe("/ros1_gremsy/goals", 1, &GimbalNode::setGoalsCallback, this);
@@ -27,7 +28,7 @@ GimbalNode::GimbalNode(ros::NodeHandle nh, ros::NodeHandle pnh)
   // Define SDK objects
   serial_port_ = new Serial_Port(config_.device.c_str(), config_.baudrate);
 
-  gimbal_interface_ = new Gimbal_Interface(serial_port_, 1, MAV_COMP_ID_ONBOARD_COMPUTER, Gimbal_Interface::MAVLINK_GIMBAL_V2);
+  gimbal_interface_ = new Gimbal_Interface(serial_port_, 1, MAV_COMP_ID_ONBOARD_COMPUTER, Gimbal_Interface::MAVLINK_GIMBAL_V1);
 
   // Start ther serial interface and the gimbal SDK
   serial_port_->start();
@@ -69,23 +70,9 @@ GimbalNode::GimbalNode(ros::NodeHandle nh, ros::NodeHandle pnh)
       ros::shutdown();
   }
 
-  // Set modes for each axis
-  /* control_gimbal_axis_mode_t tilt_axis_mode, roll_axis_mode, pan_axis_mode; */
-
-  /* tilt_axis_mode.input_mode = convertIntToAxisInputMode(config_.tilt_axis_input_mode); */
-  /* tilt_axis_mode.stabilize = config_.tilt_axis_stabilize; */
-
-  /* roll_axis_mode.input_mode = convertIntToAxisInputMode(config_.roll_axis_input_mode); */
-  /* roll_axis_mode.stabilize = config_.roll_axis_stabilize; */
-
-  /* pan_axis_mode.input_mode = convertIntToAxisInputMode(config_.pan_axis_input_mode); */
-  /* pan_axis_mode.stabilize = config_.pan_axis_stabilize; */
-
-  /* gimbal_interface_->set_gimbal_axes_mode(tilt_axis_mode, roll_axis_mode, pan_axis_mode); */
-
-  ros::Timer poll_timer = nh.createTimer(ros::Rate(100), &GimbalNode::gimbalStateTimerCallback, this);
-  ros::Timer goal_timer = nh.createTimer(ros::Rate(100), &GimbalNode::gimbalGoalTimerCallback, this);
-  /* ros::spin(); */
+  ros::Timer poll_timer = nh.createTimer(ros::Rate(config_.state_poll_rate), &GimbalNode::gimbalStateTimerCallback, this);
+  ros::Timer goal_timer = nh.createTimer(ros::Rate(config_.goal_push_rate), &GimbalNode::gimbalGoalTimerCallback, this);
+  ros::spin();
 }
 
 //}
@@ -94,14 +81,7 @@ GimbalNode::GimbalNode(ros::NodeHandle nh, ros::NodeHandle pnh)
 
 void GimbalNode::gimbalStateTimerCallback(const ros::TimerEvent& event)
 {
-  ROS_INFO("[%s]: Processing gimbal data", ros::this_node::getName().c_str());
-  // Publish Gimbal IMU
-  auto imu_mav = gimbal_interface_->get_gimbal_raw_imu();
-  sensor_msgs::Imu imu_ros_mag = convertImuMavlinkMessageToROSMessage(imu_mav);
-  imu_pub.publish(imu_ros_mag);
-
   // Publish Gimbal Encoder Values
-  /* mavlink_mount_status_t mount_status = gimbal_interface_->get_gimbal_mount_status(); */
   auto gimbal_encoder_values = gimbal_interface_->get_gimbal_encoder();
 
   geometry_msgs::Vector3Stamped encoder_ros_msg;
@@ -109,18 +89,21 @@ void GimbalNode::gimbalStateTimerCallback(const ros::TimerEvent& event)
   encoder_ros_msg.vector.x = gimbal_encoder_values.pitch;
   encoder_ros_msg.vector.y = gimbal_encoder_values.roll;
   encoder_ros_msg.vector.z = gimbal_encoder_values.yaw;
-  //Publish encoder values
+  // Publish encoder values
   encoder_pub.publish(encoder_ros_msg);
 
   // Get Mount Orientation
-  auto gimbal_attitude = gimbal_interface_->get_gimbal_attitude(); 
-  /* mavlink_mount_orientation_t mount_orientation = gimbal_interface_->get_gimbal_mount_orientation(); */
-
-  /* yaw_difference_ = DEG_TO_RAD * (mount_orientation.yaw_absolute - mount_orientation.yaw); */
-
+  auto gimbal_attitude = gimbal_interface_->get_gimbal_attitude();
   // Publish Camera Mount Orientation in global frame (drifting)
-  gimbal_attitude_pub_.publish(
-      tf2::toMsg(convertYXZtoQuaternion(gimbal_attitude.roll, gimbal_attitude.pitch, gimbal_attitude.yaw)));
+  // Publish Camera Mount Orientation in global frame (drifting)
+  geometry_msgs::Vector3Stamped gimbal_attitude_msg;
+  gimbal_attitude_msg.header.stamp = ros::Time::now();
+  gimbal_attitude_msg.vector.x = gimbal_attitude.roll;
+  gimbal_attitude_msg.vector.y = gimbal_attitude.pitch;
+  gimbal_attitude_msg.vector.z = gimbal_attitude.yaw;
+
+  gimbal_attitude_euler_pub_.publish(gimbal_attitude_msg);
+  gimbal_attitude_quat_pub_.publish(tf2::toMsg(convertYXZtoQuaternion(gimbal_attitude.roll, gimbal_attitude.pitch, gimbal_attitude.yaw)));
 }
 
 //}
@@ -140,106 +123,61 @@ Eigen::Quaterniond GimbalNode::convertYXZtoQuaternion(double roll, double pitch,
 
 void GimbalNode::gimbalGoalTimerCallback(const ros::TimerEvent& event)
 {
-  /* if (config_.lock_yaw_to_vehicle) */
-  /* { */
-  /*   z += yaw_difference_; */
-  /* } */
-  /* ROS_INFO("[%s]: Moving gimbal..", ros::this_node::getName().c_str()); */
+  std::scoped_lock lock(mutex_gimbal_);
   gimbal_interface_->set_gimbal_rotation_sync(goals_.vector.x, goals_.vector.y, goals_.vector.z);
 }
 
+//}
+
+/* setGimbalAttitude() method //{ */
+
+bool GimbalNode::setGimbalAttitude(ros1_gremsy::SetGimbalAttitude::Request& req, ros1_gremsy::SetGimbalAttitudeResponse& res)
+{
+
+  std::scoped_lock lock(mutex_gimbal_);
+  auto gimbal_encoder_values = gimbal_interface_->get_gimbal_encoder();
+
+  ROS_INFO("[GimbalController]: Attitude request received - Pitch: %f, Roll: %f, Yaw: %f", req.pitch, req.roll, req.yaw);
+
+  goals_.vector.x = req.pitch;
+  goals_.vector.y = req.roll;
+  goals_.vector.z = req.yaw;
+
+  res.success = true;
+  res.message = "Gimbal orientation set successfully.";
+  return true;
+}
 //}
 
 /* setGoalsCallback() //{ */
 
 void GimbalNode::setGoalsCallback(geometry_msgs::Vector3Stamped message)
 {
-  ROS_INFO("[%s]: Received message ", ros::this_node::getName().c_str());
+  ROS_INFO("[%s]: Received goal message ", ros::this_node::getName().c_str());
+  std::scoped_lock lock(mutex_gimbal_);
   goals_ = message;
 }
 
 //}
 
-/* convertImuMavlinkMessageToROSMessage() //{ */
-
-sensor_msgs::Imu GimbalNode::convertImuMavlinkMessageToROSMessage(Gimbal_Interface::imu_t message)
-{
-  sensor_msgs::Imu imu_message;
-
-  // Set accelaration data
-  imu_message.linear_acceleration.x = message.accel.x;
-  imu_message.linear_acceleration.y = message.accel.y;
-  imu_message.linear_acceleration.z = message.accel.z;
-
-  // Set gyro data
-  imu_message.angular_velocity.x = message.gyro.x;
-  imu_message.angular_velocity.y = message.gyro.y;
-  imu_message.angular_velocity.z = message.gyro.z;
-
-  return imu_message;
-}
-
-//}
-
-/* /1* convertIntGimbalMode() //{ *1/ */
-
-/* control_gimbal_mode_t GimbalNode::convertIntGimbalMode(int mode) */
-/* {  // Allows int access to the control_gimbal_mode_t struct */
-/*   switch (mode) */
-/*   /1* { *1/ */
-/*     case 0: */
-/*       return GIMBAL_OFF; */
-/*     case 1: */
-/*       return LOCK_MODE; */
-/*     case 2: */
-/*       return FOLLOW_MODE; */
-/*     default: */
-/*       ROS_ERROR_ONCE("Undefined gimbal mode used. Check the config file."); */
-/*       return GIMBAL_OFF; */
-/*   } */
-/* } */
-
-/* //} */
-
-/* /1* convertIntToAxisInputMode() //{ *1/ */
-
-/* control_gimbal_axis_input_mode_t GimbalNode::convertIntToAxisInputMode(int mode) */
-/* {  // Allows int access to the control_gimbal_axis_input_mode_t struct */
-/*   switch (mode) */
-/*   { */
-/*     case 0: */
-/*       return CTRL_ANGLE_BODY_FRAME; */
-/*     case 1: */
-/*       return CTRL_ANGULAR_RATE; */
-/*     case 2: */
-/*       return CTRL_ANGLE_ABSOLUTE_FRAME; */
-/*     default: */
-/*       ROS_ERROR_ONCE("Undefined axis input mode used. Check the config file."); */
-/*       return CTRL_ANGLE_ABSOLUTE_FRAME; */
-/*   } */
-/* } */
-
-/* //} */
-
 /* reconfigureCallback() //{ */
 
-void GimbalNode::reconfigureCallback(gremsy_base::ROSGremsyConfig& config, uint32_t level)
+void GimbalNode::reconfigureCallback(ros1_gremsy::ROSGremsyConfig& config, uint32_t level)
 {
   config_ = config;
 }
 
 //}
 
-/* main() //{ */ 
+/* main() //{ */
 
 int main(int argc, char** argv)
 {
   // Init
-  ros::init(argc, argv, "gremsy_base");
+  ros::init(argc, argv, "ros1_gremsy");
   ros::NodeHandle nh;
   ros::NodeHandle pnh("~");
   GimbalNode n(nh, pnh);
-  ros::spin();
   return 0;
 }
 

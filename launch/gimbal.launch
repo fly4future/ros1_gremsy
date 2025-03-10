@@ -1,5 +1,5 @@
 <launch>
-    <node pkg="gremsy_base" type="GimbalNode" name="gremsy_base" output="screen">
-        <rosparam command="load" file="$(find gremsy_base)/config/config.yaml"/>
+    <node pkg="ros1_gremsy" type="GimbalNode" name="ros1_gremsy" output="screen">
+        <rosparam command="load" file="$(find ros1_gremsy)/config/config.yaml"/>
     </node>
 </launch>
