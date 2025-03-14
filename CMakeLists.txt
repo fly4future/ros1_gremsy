@@ -11,6 +11,7 @@ set(CATKIN_DEPENDENCIES
     tf2_geometry_msgs
     dynamic_reconfigure
     sensor_msgs
+    mrs_msgs
     geometry_msgs
     message_generation
     message_runtime

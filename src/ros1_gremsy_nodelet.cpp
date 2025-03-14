@@ -19,6 +19,7 @@
 #include <ros1_gremsy/ROSGremsyConfig.h>
 #include <ros1_gremsy/SetGimbalAttitude.h>
 #include <ros1_gremsy/GimbalDiagnostics.h>
+#include <mrs_msgs/SetInt.h>
 #include <cmath>
 #include <Eigen/Geometry>
 #include <boost/bind.hpp>
@@ -43,6 +44,7 @@ namespace ros1_gremsy
 
   private:
     std::atomic<bool> is_initialized_ = false;
+    std::atomic<bool> changing_mode_= false;
     /* ros parameters */
     double _rate_timer_controller_ = 60;
     double _state_timer_controller_ = 10;
@@ -59,6 +61,7 @@ namespace ros1_gremsy
     // Goals
     geometry_msgs::Vector3Stamped goals_{};
     std::string gimbal_mode_;
+    double gimbal_mount_orientation_yaw = 0;
 
     // | --------------------- subscribers -------------------- |
     ros::Subscriber goal_sub_;
@@ -70,6 +73,7 @@ namespace ros1_gremsy
 
     // | --------------------- service server -------------------- |
     ros::ServiceServer ss_set_gimbal_attitude_;
+    ros::ServiceServer ss_set_gimbal_mode_;
 
     // | --------------------- timer callbacks -------------------- |
 
@@ -80,6 +84,7 @@ namespace ros1_gremsy
     void setGoalsCallback(geometry_msgs::Vector3Stamped message);
     void reconfigureCallback(ros1_gremsy::ROSGremsyConfig& config, uint32_t level);
     bool setGimbalAttitude(ros1_gremsy::SetGimbalAttitude::Request& req, ros1_gremsy::SetGimbalAttitude::Response& res);
+    bool setGimbalMode(mrs_msgs::SetInt::Request& req, mrs_msgs::SetInt::Response& res);
     void publishDiagnostics(void);
     ros::Timer timer_controller_;
     ros::Timer timer_status_;
@@ -103,17 +108,17 @@ namespace ros1_gremsy
     server.setCallback(f);
 
     // Load params
-    _gimbal_sdk_device_id_   = config_.device;
-    _gimbal_sdk_baudrate_    = config_.baudrate;
-    _gimbal_sdk_mode_        = config_.gimbal_mode;
-    _rate_timer_controller_  = config_.goal_push_rate;
+    _gimbal_sdk_device_id_ = config_.device;
+    _gimbal_sdk_baudrate_ = config_.baudrate;
+    _gimbal_sdk_mode_ = config_.gimbal_mode;
+    _rate_timer_controller_ = config_.goal_push_rate;
     _state_timer_controller_ = config_.state_poll_rate;
 
     // | ------------------ initialize subscribers ----------------- |
     // Advertive Publishers
-    gimbal_attitude_pub_quat_  = nh.advertise<geometry_msgs::Quaternion>("/ros1_gremsy/gimbal_attitude_quaternion", 1);
+    gimbal_attitude_pub_quat_ = nh.advertise<geometry_msgs::Quaternion>("/ros1_gremsy/gimbal_attitude_quaternion", 1);
     gimbal_attitude_pub_euler_ = nh.advertise<geometry_msgs::Vector3Stamped>("/ros1_gremsy/gimbal_attitude_euler", 1);
-    gimbal_diagnostics_        = nh.advertise<ros1_gremsy::GimbalDiagnostics>("/ros1_gremsy/gimbal_diagnostics", 1);
+    gimbal_diagnostics_ = nh.advertise<ros1_gremsy::GimbalDiagnostics>("/ros1_gremsy/gimbal_diagnostics", 1);
 
     // Register Subscribers
     goal_sub_ = nh.subscribe("/ros1_gremsy/goals", 1, &GremsyDriver::setGoalsCallback, this);
@@ -124,6 +129,7 @@ namespace ros1_gremsy
     timer_status_ = nh.createTimer(ros::Rate(config_.state_poll_rate), &GremsyDriver::gimbalStateTimerCallback, this);
 
     ss_set_gimbal_attitude_ = nh.advertiseService("set_gimbal_attitude", &GremsyDriver::setGimbalAttitude, this);
+    ss_set_gimbal_mode_ = nh.advertiseService("set_gimbal_mode", &GremsyDriver::setGimbalMode, this);
 
     /* Define SDK objects */
     ROS_INFO("[GremsyDriver]: Initializing gimbal SDK.");
@@ -208,15 +214,79 @@ namespace ros1_gremsy
   }
   //}
 
+  /* setGimbalMode() //{ */
+
+  bool GremsyDriver::setGimbalMode(mrs_msgs::SetInt::Request& req, mrs_msgs::SetInt::Response& res)
+  {
+    if (!is_initialized_)
+    {
+      res.success = false;
+      res.message = "GimbalController not initialized.";
+      return true;
+    }
+    changing_mode_ = true;
+    bool success = true;
+    std::stringstream ss;
+    ROS_INFO("[GimbalController]: Change operation mode request received - Value: %f", req.value);
+    {
+      std::scoped_lock lock(mutex_gimbal_);
+      switch (req.value)
+      {
+        case 1: {
+          if (gimbal_mode_ != "lock")
+          {
+            ROS_INFO("[GremsyDriver]: Setting gimbal to lock mode.");
+            gimbal_interface_->set_gimbal_lock_mode_sync();
+            gimbal_mode_ = "lock";
+            ss << "Changed mode successfully into lock mode";
+          } else
+          {
+            ROS_WARN("[GremsyDriver]: Gimbal already in lock mode. Ignoring...");
+            success = false;
+            ss << "Gimbal already in follow mode";
+          }
+          break;
+        }
+        case 2: {
+          if (gimbal_mode_ != "follow")
+          {
+            ROS_INFO("[GremsyDriver]: Setting gimbal to follow mode.");
+            gimbal_interface_->set_gimbal_follow_mode_sync();
+            gimbal_mode_ = "follow";
+            ss << "Changed mode successfully into follow mode";
+          } else
+          {
+            ROS_WARN("[GremsyDriver]: Gimbal already in follow mode. Ignoring...");
+            success = false;
+            ss << "Gimbal already in follow mode";
+          }
+          break;
+        }
+        default: {
+          ROS_WARN("[GremsyDriver]: Incorrect gimbal mode. Gimbal only supports (lock) and (follow).");
+          success = false;
+          ss << "Incorrect gimbal mode. Gimbal only supports (lock) and (follow).";
+          break;
+        }
+      }
+    }
+    res.success = success;
+    res.message = ss.str();
+    changing_mode_ = false;
+    return true;
+  }
+
+  //}
+
   /* callbackTimerGremsyDriver() method //{ */
 
   void GremsyDriver::callbackTimerGremsyDriver(const ros::TimerEvent& event)
   {
-    if (!is_initialized_)
+    if (!is_initialized_ || changing_mode_)
     {
       return;
     }
-    //Gimbal expects the arguments in the following order: pitch,roll,yaw
+    // Gimbal expects the arguments in the following order: pitch,roll,yaw
     std::scoped_lock lock(mutex_gimbal_);
     gimbal_interface_->set_gimbal_rotation_sync(goals_.vector.x, goals_.vector.y, goals_.vector.z * (-1));
   }
@@ -232,8 +302,8 @@ namespace ros1_gremsy
       return;
     }
     // Gremsy follows North-East-Down (NED) coordinates convention, we are using East-North-Up (ENU) convention
-    // NED: X-axis/Roll: Forward, Y-axis/Pitch: Right , Z-axis/Yaw: Down 
-    // ENU: Y-axis/Roll: Forward, X-axis/Pitch: Left, Z-axis/Yaw: Up 
+    // NED: X-axis/Roll: Forward, Y-axis/Pitch: Right , Z-axis/Yaw: Down
+    // ENU: Y-axis/Roll: Forward, X-axis/Pitch: Left, Z-axis/Yaw: Up
     // Get Mount Orientation
     auto gimbal_attitude = gimbal_interface_->get_gimbal_attitude();
     // Publish Camera Mount Orientation in global frame
@@ -243,21 +313,24 @@ namespace ros1_gremsy
     gimbal_attitude_msg.vector.y = gimbal_attitude.roll;
     gimbal_attitude_msg.vector.z = gimbal_attitude.yaw * (-1);
 
-    auto gimbal_attitude_quaternion_msg = tf2::toMsg(convertYXZtoQuaternion(gimbal_attitude_msg.vector.y, gimbal_attitude_msg.vector.x, gimbal_attitude_msg.vector.z));
+    ROS_INFO_STREAM("[GremsyDriver]: Yaw is : "<< gimbal_attitude_msg.vector.z);
+
+    auto gimbal_attitude_quaternion_msg =
+        tf2::toMsg(convertYXZtoQuaternion(gimbal_attitude_msg.vector.y, gimbal_attitude_msg.vector.x, gimbal_attitude_msg.vector.z));
 
     gimbal_attitude_pub_euler_.publish(gimbal_attitude_msg);
     gimbal_attitude_pub_quat_.publish(
         tf2::toMsg(convertYXZtoQuaternion(gimbal_attitude_msg.vector.y, gimbal_attitude_msg.vector.x, gimbal_attitude_msg.vector.z)));
 
     ros1_gremsy::GimbalDiagnostics diagnostics_msg;
-    diagnostics_msg.stamp               = ros::Time::now();
-    diagnostics_msg.attitude_euler      = gimbal_attitude_msg;
+    diagnostics_msg.stamp = ros::Time::now();
+    diagnostics_msg.attitude_euler = gimbal_attitude_msg;
     diagnostics_msg.attitude_quaternion = gimbal_attitude_quaternion_msg;
 
     std::scoped_lock lock(mutex_gimbal_);
     {
-      diagnostics_msg.setpoint            = goals_;
-      diagnostics_msg.mode                = gimbal_mode_;
+      diagnostics_msg.setpoint = goals_;
+      diagnostics_msg.mode = gimbal_mode_;
     }
 
     gimbal_diagnostics_.publish(diagnostics_msg);
