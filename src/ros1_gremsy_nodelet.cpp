@@ -282,13 +282,13 @@ namespace ros1_gremsy
 
   void GremsyDriver::callbackTimerGremsyDriver(const ros::TimerEvent& event)
   {
-    if (!is_initialized_ || changing_mode_)
+    if (!is_initialized_)
     {
       return;
     }
     // Gimbal expects the arguments in the following order: pitch,roll,yaw
     std::scoped_lock lock(mutex_gimbal_);
-    gimbal_interface_->set_gimbal_rotation_sync(goals_.vector.x, goals_.vector.y, goals_.vector.z * (-1));
+    gimbal_interface_->set_gimbal_rotation_sync(goals_.vector.x, goals_.vector.y, -goals_.vector.z);
   }
 
   //}
@@ -311,9 +311,7 @@ namespace ros1_gremsy
     gimbal_attitude_msg.header.stamp = ros::Time::now();
     gimbal_attitude_msg.vector.x = gimbal_attitude.pitch;
     gimbal_attitude_msg.vector.y = gimbal_attitude.roll;
-    gimbal_attitude_msg.vector.z = gimbal_attitude.yaw * (-1);
-
-    ROS_INFO_STREAM("[GremsyDriver]: Yaw is : "<< gimbal_attitude_msg.vector.z);
+    gimbal_attitude_msg.vector.z = -gimbal_attitude.yaw;
 
     auto gimbal_attitude_quaternion_msg =
         tf2::toMsg(convertYXZtoQuaternion(gimbal_attitude_msg.vector.y, gimbal_attitude_msg.vector.x, gimbal_attitude_msg.vector.z));
