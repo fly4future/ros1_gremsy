@@ -11,7 +11,7 @@ set(CATKIN_DEPENDENCIES
     tf2_geometry_msgs
     dynamic_reconfigure
     sensor_msgs
-    std_msgs
+    geometry_msgs
     message_generation
     message_runtime
 )
@@ -34,10 +34,13 @@ generate_dynamic_reconfigure_options(
 add_service_files(DIRECTORY srv FILES
   SetGimbalAttitude.srv
 )
-
+# messages
+add_message_files(DIRECTORY msg FILES
+  GimbalDiagnostics.msg
+  )
 generate_messages(
     DEPENDENCIES
-    std_msgs
+    geometry_msgs
 )
 catkin_package(
   INCLUDE_DIRS include
@@ -86,6 +89,7 @@ target_link_libraries(GimbalNode ${catkin_LIBRARIES})
 
 target_link_libraries(GremsyDriverNode
   ${catkin_LIBRARIES}
+  ${Eigen_LIBRARIES}
 )
 
 install(TARGETS GremsyDriverNode

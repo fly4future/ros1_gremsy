@@ -1,6 +1,6 @@
 # Config
 device: "/dev/ttyUSB0"
 baudrate: 115200
-state_poll_rate: 10.0
-goal_push_rate: 60.0
+state_poll_rate: 5.0
+goal_push_rate: 2.0
 gimbal_mode: 2 #0: OFF, 1: LOCK, 2: FOLLOW 
