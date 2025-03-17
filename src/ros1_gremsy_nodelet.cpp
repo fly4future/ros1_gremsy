@@ -309,21 +309,25 @@ namespace ros1_gremsy
     {
       return;
     }
-
+    // |-------------------------------------- IMPORTANT ---------------------------------------------------------|
+    // Gremsy follows North-East-Down (NED) coordinates convention, we are using East-North-Up (ENU) convention
+    // NED: X-axis/Roll: Forward, Y-axis/Pitch: Right , Z-axis/Yaw: Down
+    // ENU: Y-axis/Roll: Forward, X-axis/Pitch: Left, Z-axis/Yaw: Up
+    // |------------------------------------- INFORMATION --------------------------------------------------------|
+    
     // Publish Gimbal Encoder Values
     auto gimbal_encoder_values = gimbal_interface_->get_gimbal_encoder();
 
     geometry_msgs::Vector3Stamped gimbal_encoder_msg;
     gimbal_encoder_msg.header.stamp =  ros::Time::now();
-    gimbal_encoder_msg.vector.x     =  gimbal_encoder_values.roll;
-    gimbal_encoder_msg.vector.y     = -gimbal_encoder_values.pitch;
-    gimbal_encoder_msg.vector.z     = -gimbal_encoder_values.yaw;
+    gimbal_encoder_msg.vector.x     =   gimbal_encoder_values.roll;
+    //The pitch encoder values are given with opposite direction, so we only need to reverse the yaw, 
+    //to be consistent with our ENU convention. 
+    gimbal_encoder_msg.vector.y     =   gimbal_encoder_values.pitch;
+    gimbal_encoder_msg.vector.z     =  -gimbal_encoder_values.yaw;
     // Publish encoder values
     encoder_pub_.publish(gimbal_encoder_msg);
-    // Gremsy follows North-East-Down (NED) coordinates convention, we are using East-North-Up (ENU) convention
-    // NED: X-axis/Roll: Forward, Y-axis/Pitch: Right , Z-axis/Yaw: Down
-    // ENU: Y-axis/Roll: Forward, X-axis/Pitch: Left, Z-axis/Yaw: Up
-    // Get Mount Orientation
+        // Get Mount Orientation
     auto gimbal_attitude = gimbal_interface_->get_gimbal_attitude();
     // Publish Camera Mount Orientation in global frame
     geometry_msgs::Vector3Stamped gimbal_attitude_msg;
