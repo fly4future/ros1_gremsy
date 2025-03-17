@@ -17,5 +17,17 @@
 
     <node pkg="nodelet" type="nodelet" name="gremsy_driver" args="$(arg nodelet) ros1_gremsy/GremsyDriver $(arg nodelet_manager)" launch-prefix="$(arg launch_prefix_debug)" output="screen">
       <rosparam command="load" file="$(find ros1_gremsy)/config/config.yaml"/>
+      <!--Publishers -->
+      <remap from="~out/encoder_values" to="~/encoder_values" />
+      <remap from="~out/attitude_quaternion" to="~/attitude_quaternion" />
+      <remap from="~out/attitude_euler" to="~/attitude_euler" />
+      <remap from="~out/diagnostics" to="~/diagnostics" />
+      <!--Subscribers -->
+      <remap from="~in/goal" to="~/goal" />
+
+      <!--Services -->
+      <remap from="~svs/set_gimbal_attitude" to="~/set_gimbal_attitude" />
+      <remap from="~svs/set_gimbal_mode" to="~/set_gimbal_mode" />
+
     </node>
 </launch>

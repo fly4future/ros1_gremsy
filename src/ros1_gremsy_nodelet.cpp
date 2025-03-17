@@ -116,21 +116,21 @@ namespace ros1_gremsy
 
     // | ------------------ initialize subscribers ----------------- |
     // Advertive Publishers
-    encoder_pub_ = nh.advertise<geometry_msgs::Vector3Stamped>("/ros1_gremsy/encoder", 1);
-    gimbal_attitude_pub_quat_ = nh.advertise<geometry_msgs::Quaternion>("/ros1_gremsy/gimbal_attitude_quaternion", 1);
-    gimbal_attitude_pub_euler_ = nh.advertise<geometry_msgs::Vector3Stamped>("/ros1_gremsy/gimbal_attitude_euler", 1);
-    gimbal_diagnostics_ = nh.advertise<ros1_gremsy::GimbalDiagnostics>("/ros1_gremsy/gimbal_diagnostics", 1);
+    encoder_pub_ = nh.advertise<geometry_msgs::Vector3Stamped>("out/encoder_values", 1);
+    gimbal_attitude_pub_quat_ = nh.advertise<geometry_msgs::Quaternion>("out/attitude_quaternion", 1);
+    gimbal_attitude_pub_euler_ = nh.advertise<geometry_msgs::Vector3Stamped>("out/attitude_euler", 1);
+    gimbal_diagnostics_ = nh.advertise<ros1_gremsy::GimbalDiagnostics>("out/diagnostics", 1);
 
     // Register Subscribers
-    goal_sub_ = nh.subscribe("/ros1_gremsy/goals", 1, &GremsyDriver::setGoalsCallback, this);
+    goal_sub_ = nh.subscribe("in/goal", 1, &GremsyDriver::setGoalsCallback, this);
 
     ROS_INFO_STREAM("[GremsyDriver]: Config rate: " << config_.goal_push_rate);
     // | -------------------- initialize timers ------------------- |
     timer_controller_ = nh.createTimer(ros::Rate(config_.goal_push_rate), &GremsyDriver::callbackTimerGremsyDriver, this);
     timer_status_ = nh.createTimer(ros::Rate(config_.state_poll_rate), &GremsyDriver::gimbalStateTimerCallback, this);
 
-    ss_set_gimbal_attitude_ = nh.advertiseService("set_gimbal_attitude", &GremsyDriver::setGimbalAttitude, this);
-    ss_set_gimbal_mode_ = nh.advertiseService("set_gimbal_mode", &GremsyDriver::setGimbalMode, this);
+    ss_set_gimbal_attitude_ = nh.advertiseService("svs/set_gimbal_mode", &GremsyDriver::setGimbalAttitude, this);
+    ss_set_gimbal_mode_ = nh.advertiseService("svs/set_gimbal_mode", &GremsyDriver::setGimbalMode, this);
 
     /* Define SDK objects */
     ROS_INFO("[GremsyDriver]: Initializing gimbal SDK.");
