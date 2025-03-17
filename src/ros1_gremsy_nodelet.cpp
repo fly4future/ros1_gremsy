@@ -116,6 +116,7 @@ namespace ros1_gremsy
 
     // | ------------------ initialize subscribers ----------------- |
     // Advertive Publishers
+    encoder_pub_ = nh.advertise<geometry_msgs::Vector3Stamped>("/ros1_gremsy/encoder", 1);
     gimbal_attitude_pub_quat_ = nh.advertise<geometry_msgs::Quaternion>("/ros1_gremsy/gimbal_attitude_quaternion", 1);
     gimbal_attitude_pub_euler_ = nh.advertise<geometry_msgs::Vector3Stamped>("/ros1_gremsy/gimbal_attitude_euler", 1);
     gimbal_diagnostics_ = nh.advertise<ros1_gremsy::GimbalDiagnostics>("/ros1_gremsy/gimbal_diagnostics", 1);
@@ -203,8 +204,8 @@ namespace ros1_gremsy
     ROS_INFO("[GimbalController]: Attitude request received - Roll: %f, Pitch: %f, Yaw: %f", req.roll, req.pitch, req.yaw);
     std::scoped_lock lock(mutex_gimbal_);
     {
-      goals_.vector.x = req.pitch;
-      goals_.vector.y = req.roll;
+      goals_.vector.x = req.roll;
+      goals_.vector.y = req.pitch;
       goals_.vector.z = req.yaw;
     }
 
@@ -225,9 +226,9 @@ namespace ros1_gremsy
       return true;
     }
     changing_mode_ = true;
-    bool success = true;
+    bool success   = true;
     std::stringstream ss;
-    ROS_INFO("[GimbalController]: Change operation mode request received - Value: %f", req.value);
+    ROS_INFO_STREAM("[GimbalController]: Change operation mode request received - Value: " << req.value);
     {
       std::scoped_lock lock(mutex_gimbal_);
       switch (req.value)
@@ -288,7 +289,14 @@ namespace ros1_gremsy
     }
     // Gimbal expects the arguments in the following order: pitch,roll,yaw
     std::scoped_lock lock(mutex_gimbal_);
-    gimbal_interface_->set_gimbal_rotation_sync(goals_.vector.x, goals_.vector.y, -goals_.vector.z);
+    //Pitch and Yaw negative to follow MRS Body Frame convention (ENU)
+    if (gimbal_mode_ == "follow") {
+      gimbal_interface_->set_gimbal_rotation_sync(-goals_.vector.y, goals_.vector.x, -goals_.vector.z);
+    }
+    else
+    {
+      gimbal_interface_->set_gimbal_rotation_sync(goals_.vector.y, goals_.vector.x, goals_.vector.z);
+    }
   }
 
   //}
@@ -301,6 +309,17 @@ namespace ros1_gremsy
     {
       return;
     }
+
+    // Publish Gimbal Encoder Values
+    auto gimbal_encoder_values = gimbal_interface_->get_gimbal_encoder();
+
+    geometry_msgs::Vector3Stamped gimbal_encoder_msg;
+    gimbal_encoder_msg.header.stamp =  ros::Time::now();
+    gimbal_encoder_msg.vector.x     =  gimbal_encoder_values.roll;
+    gimbal_encoder_msg.vector.y     = -gimbal_encoder_values.pitch;
+    gimbal_encoder_msg.vector.z     = -gimbal_encoder_values.yaw;
+    // Publish encoder values
+    encoder_pub_.publish(gimbal_encoder_msg);
     // Gremsy follows North-East-Down (NED) coordinates convention, we are using East-North-Up (ENU) convention
     // NED: X-axis/Roll: Forward, Y-axis/Pitch: Right , Z-axis/Yaw: Down
     // ENU: Y-axis/Roll: Forward, X-axis/Pitch: Left, Z-axis/Yaw: Up
@@ -308,11 +327,12 @@ namespace ros1_gremsy
     auto gimbal_attitude = gimbal_interface_->get_gimbal_attitude();
     // Publish Camera Mount Orientation in global frame
     geometry_msgs::Vector3Stamped gimbal_attitude_msg;
-    gimbal_attitude_msg.header.stamp = ros::Time::now();
-    gimbal_attitude_msg.vector.x = gimbal_attitude.pitch;
-    gimbal_attitude_msg.vector.y = gimbal_attitude.roll;
-    gimbal_attitude_msg.vector.z = -gimbal_attitude.yaw;
+    gimbal_attitude_msg.header.stamp =  ros::Time::now();
+    gimbal_attitude_msg.vector.x     =  gimbal_attitude.roll;
+    gimbal_attitude_msg.vector.y     = -gimbal_attitude.pitch;
+    gimbal_attitude_msg.vector.z     = -gimbal_attitude.yaw;
 
+    /* ROS_INFO_STREAM("[GremsyDriver]: Yaw is : "<< gimbal_attitude_msg.vector.z); */
     auto gimbal_attitude_quaternion_msg =
         tf2::toMsg(convertYXZtoQuaternion(gimbal_attitude_msg.vector.y, gimbal_attitude_msg.vector.x, gimbal_attitude_msg.vector.z));
 
@@ -321,14 +341,15 @@ namespace ros1_gremsy
         tf2::toMsg(convertYXZtoQuaternion(gimbal_attitude_msg.vector.y, gimbal_attitude_msg.vector.x, gimbal_attitude_msg.vector.z)));
 
     ros1_gremsy::GimbalDiagnostics diagnostics_msg;
-    diagnostics_msg.stamp = ros::Time::now();
-    diagnostics_msg.attitude_euler = gimbal_attitude_msg;
+    diagnostics_msg.stamp               = ros::Time::now();
+    diagnostics_msg.encoder_values      = gimbal_encoder_msg;
+    diagnostics_msg.attitude_euler      = gimbal_attitude_msg;
     diagnostics_msg.attitude_quaternion = gimbal_attitude_quaternion_msg;
 
     std::scoped_lock lock(mutex_gimbal_);
     {
       diagnostics_msg.setpoint = goals_;
-      diagnostics_msg.mode = gimbal_mode_;
+      diagnostics_msg.mode     = gimbal_mode_;
     }
 
     gimbal_diagnostics_.publish(diagnostics_msg);
