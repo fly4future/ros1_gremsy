@@ -23,7 +23,9 @@
 #include <cmath>
 #include <Eigen/Geometry>
 #include <boost/bind.hpp>
-
+#include <tf2_ros/transform_broadcaster.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <mrs_lib/param_loader.h>
 // Gimbal API
 #include "gimbal_interface.h"
 #include "serial_port.h"
@@ -51,6 +53,8 @@ namespace ros1_gremsy
     std::string _gimbal_sdk_device_id_ = "/dev/ttyUSB0";
     int _gimbal_sdk_baudrate_ = 115200;
     int _gimbal_sdk_mode_ = 2;
+    std::string       _gimbal_link_frame_;
+    std::string       _gimbal_frame_;
     std::mutex mutex_gimbal_;
 
     /* Gimbal SDK and Serial Port */
@@ -70,6 +74,8 @@ namespace ros1_gremsy
     ros::Publisher gimbal_attitude_pub_quat_;
     ros::Publisher gimbal_attitude_pub_euler_;
     ros::Publisher gimbal_diagnostics_;
+
+    tf2_ros::TransformBroadcaster tf_broadcaster_;
 
     // | --------------------- service server -------------------- |
     ros::ServiceServer ss_set_gimbal_attitude_;
@@ -113,6 +119,12 @@ namespace ros1_gremsy
     _gimbal_sdk_mode_ = config_.gimbal_mode;
     _rate_timer_controller_ = config_.goal_push_rate;
     _state_timer_controller_ = config_.state_poll_rate;
+
+
+    mrs_lib::ParamLoader param_loader(nh, "GremsyDriver");
+
+    param_loader.loadParam("gimbal_link_frame", _gimbal_link_frame_);
+    param_loader.loadParam("gimbal_frame", _gimbal_frame_);
 
     // | ------------------ initialize subscribers ----------------- |
     // Advertive Publishers
@@ -338,11 +350,25 @@ namespace ros1_gremsy
 
     /* ROS_INFO_STREAM("[GremsyDriver]: Yaw is : "<< gimbal_attitude_msg.vector.z); */
     auto gimbal_attitude_quaternion_msg =
-        tf2::toMsg(convertYXZtoQuaternion(gimbal_attitude_msg.vector.y, gimbal_attitude_msg.vector.x, gimbal_attitude_msg.vector.z));
+        tf2::toMsg(convertYXZtoQuaternion(gimbal_attitude_msg.vector.x, gimbal_attitude_msg.vector.y, gimbal_attitude_msg.vector.z));
 
     gimbal_attitude_pub_euler_.publish(gimbal_attitude_msg);
     gimbal_attitude_pub_quat_.publish(
-        tf2::toMsg(convertYXZtoQuaternion(gimbal_attitude_msg.vector.y, gimbal_attitude_msg.vector.x, gimbal_attitude_msg.vector.z)));
+        tf2::toMsg(convertYXZtoQuaternion(gimbal_attitude_msg.vector.x, gimbal_attitude_msg.vector.y, gimbal_attitude_msg.vector.z)));
+
+    //Set of position of gimbal within the fcu (translation)
+    geometry_msgs::TransformStamped transform;
+    transform.header.stamp            = ros::Time::now();
+    transform.header.frame_id         = _gimbal_link_frame_; 
+    transform.child_frame_id          = _gimbal_frame_; 
+    transform.transform.translation.x = 0.11;
+    transform.transform.translation.y = 0.0;
+    transform.transform.translation.z = -0.239;
+
+    //Set the rotation based on the current attitude
+    transform.transform.rotation = tf2::toMsg(convertYXZtoQuaternion(gimbal_attitude_msg.vector.x, gimbal_attitude_msg.vector.y, gimbal_attitude_msg.vector.z));
+
+    tf_broadcaster_.sendTransform(transform);
 
     ros1_gremsy::GimbalDiagnostics diagnostics_msg;
     diagnostics_msg.stamp               = ros::Time::now();
@@ -387,8 +413,8 @@ namespace ros1_gremsy
 
   Eigen::Quaterniond GremsyDriver::convertYXZtoQuaternion(double roll, double pitch, double yaw)
   {
-    Eigen::Quaterniond quat_abs(Eigen::AngleAxisd(-DEG_TO_RAD * pitch, Eigen::Vector3d::UnitY())
-                                * Eigen::AngleAxisd(-DEG_TO_RAD * roll, Eigen::Vector3d::UnitX())
+    Eigen::Quaterniond quat_abs(Eigen::AngleAxisd(DEG_TO_RAD * pitch, Eigen::Vector3d::UnitY())
+                                * Eigen::AngleAxisd(DEG_TO_RAD * roll, Eigen::Vector3d::UnitX())
                                 * Eigen::AngleAxisd(DEG_TO_RAD * yaw, Eigen::Vector3d::UnitZ()));
     return quat_abs;
   }
