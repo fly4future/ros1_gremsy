@@ -1,33 +1,57 @@
 <launch>
-
-  <!-- set to false if the nodelet should run under an external nodelet manager -->
+  <!-- defines name of the namespace of the drone -->
+  <arg name="uav_name" default="$(optenv UAV_NAME uav1)" />
+  <arg name="fcu_frame" default="$(arg uav_name)/fcu" />
+    <!-- set to false if the nodelet should run under an external nodelet manager -->
   <arg name="standalone" default="true" />
-
-  <!-- will it run using GNU debugger? -->
+    <!-- will it run using GNU debugger? -->
   <arg name="debug" default="false" />
   <arg unless="$(arg debug)" name="launch_prefix_debug" value=""/>
   <arg     if="$(arg debug)" name="launch_prefix_debug" value="debug_roslaunch"/>
 
-  <!-- will it run as standalone nodelet or using a nodelet manager? -->
+  <arg name="config" default="" />
+    <!-- will it run as standalone nodelet or using a nodelet manager? -->
   <arg name="manager" default="ros1_gremsy_driver_manager" />
   <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
   <arg unless="$(arg standalone)" name="nodelet" value="load"/>
   <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
   <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg manager)"/>
 
+  <arg name="gimbal_name" default="gimbal" />
+  <arg name="gimbal_link_frame" default="$(arg uav_name)/$(arg gimbal_name)_link" />
+  <arg name="gimbal_roll_frame" default="$(arg uav_name)/$(arg gimbal_name)/roll" />
+  <arg name="gimbal_pitch_frame" default="$(arg uav_name)/$(arg gimbal_name)/pitch" />
+  <arg name="gimbal_yaw_frame" default="$(arg uav_name)/$(arg gimbal_name)/yaw" />
+
+    <!-- Namespace -->
+  <group ns="$(arg uav_name)">
+
     <node pkg="nodelet" type="nodelet" name="gremsy_driver" args="$(arg nodelet) ros1_gremsy/GremsyDriver $(arg nodelet_manager)" launch-prefix="$(arg launch_prefix_debug)" output="screen">
-      <rosparam command="load" file="$(find ros1_gremsy)/config/config.yaml"/>
-      <!--Publishers -->
+      <param name="frame_config" value="$(find ros1_gremsy)/config/config.yaml" />
+      <param name="gimbal_link_frame" type="string" value="$(arg gimbal_link_frame)" />
+      <param name="gimbal_roll_frame" type="string" value="$(arg gimbal_roll_frame)" />
+      <param name="gimbal_pitch_frame" type="string" value="$(arg gimbal_pitch_frame)" />
+      <param name="gimbal_yaw_frame" type="string" value="$(arg gimbal_yaw_frame)" />
+
+      <param if="$(eval arg('config') == '')" name="config" value="" />
+      <param if="$(eval not arg('config') == '' and arg('config')[0] == '/')" name="config" value="$(arg config)" />
+      <param if="$(eval not arg('config') == '' and not arg('config')[0] == '/')" name="config" value="$(env PWD)/$(arg config)" />
+
+        <!--Publishers -->
       <remap from="~out/encoder_values" to="~/encoder_values" />
       <remap from="~out/attitude_quaternion" to="~/attitude_quaternion" />
       <remap from="~out/attitude_euler" to="~/attitude_euler" />
       <remap from="~out/diagnostics" to="~/diagnostics" />
-      <!--Subscribers -->
+        <!--Subscribers -->
       <remap from="~in/goal" to="~/goal" />
 
-      <!--Services -->
+        <!--Services -->
       <remap from="~svs/set_gimbal_attitude" to="~/set_gimbal_attitude" />
       <remap from="~svs/set_gimbal_mode" to="~/set_gimbal_mode" />
-
+     
     </node>
+    <!-- Static gimbal link publisher -->
+    <node pkg="tf2_ros" type="static_transform_publisher" name="gimbal_link" args="0.11 0.0 -0.10 0.0 0.0 0.0 $(arg fcu_frame) $(arg gimbal_link_frame)" />
+
+  </group>
 </launch>

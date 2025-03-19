@@ -4,3 +4,21 @@ baudrate: 115200
 state_poll_rate: 5.0
 goal_push_rate: 2.0
 gimbal_mode: 2 #0: OFF, 1: LOCK, 2: FOLLOW 
+
+#Transformation config, values relative to parent frame
+#Translation from gimbal link frame
+frames: 
+  yaw_frame:
+    x:  0.0
+    y:  0.0
+    z: -0.07 
+#Translation from yaw frame 
+  roll_frame:
+    x: -0.082
+    y:  0.0
+    z: -0.10 
+#Translation from roll frame 
+  pitch_frame:
+    x: 0.10
+    y: 0.055
+    z: 0.0 

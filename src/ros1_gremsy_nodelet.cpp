@@ -53,8 +53,18 @@ namespace ros1_gremsy
     std::string _gimbal_sdk_device_id_ = "/dev/ttyUSB0";
     int _gimbal_sdk_baudrate_ = 115200;
     int _gimbal_sdk_mode_ = 2;
+    std::string       _config_;
     std::string       _gimbal_link_frame_;
     std::string       _gimbal_frame_;
+    std::string       _gimbal_roll_frame_;
+    std::string       _gimbal_pitch_frame_;
+    std::string       _gimbal_yaw_frame_;
+    int               _gimbal_tf_translation_x_;
+    int               _gimbal_tf_translation_y_;
+    int               _gimbal_tf_translation_z_;
+    geometry_msgs::Vector3  _yaw_frame_;
+    geometry_msgs::Vector3  _roll_frame_;
+    geometry_msgs::Vector3  _pitch_frame_;
     std::mutex mutex_gimbal_;
 
     /* Gimbal SDK and Serial Port */
@@ -123,8 +133,31 @@ namespace ros1_gremsy
 
     mrs_lib::ParamLoader param_loader(nh, "GremsyDriver");
 
+    param_loader.loadParam("config", _config_);
+    if (_config_ != "") {
+    ROS_INFO("[GremsyDriver]: Adding config file.");
+    param_loader.addYamlFile(_config_);
+    }
+
+    param_loader.addYamlFileFromParam("frame_config");
+
     param_loader.loadParam("gimbal_link_frame", _gimbal_link_frame_);
-    param_loader.loadParam("gimbal_frame", _gimbal_frame_);
+    param_loader.loadParam("gimbal_roll_frame", _gimbal_roll_frame_);
+    param_loader.loadParam("gimbal_pitch_frame", _gimbal_pitch_frame_);
+    param_loader.loadParam("gimbal_yaw_frame", _gimbal_yaw_frame_);
+    
+    param_loader.setPrefix("frames/");
+    param_loader.loadParam("yaw_frame/x",     _yaw_frame_.x);
+    param_loader.loadParam("yaw_frame/y",     _yaw_frame_.y);
+    param_loader.loadParam("yaw_frame/z",     _yaw_frame_.z);
+
+    param_loader.loadParam("roll_frame/x",    _roll_frame_.x);
+    param_loader.loadParam("roll_frame/y",    _roll_frame_.y);
+    param_loader.loadParam("roll_frame/z",    _roll_frame_.z);
+
+    param_loader.loadParam("pitch_frame/x",   _pitch_frame_.x);
+    param_loader.loadParam("pitch_frame/y",   _pitch_frame_.y);
+    param_loader.loadParam("pitch_frame/z",   _pitch_frame_.z);
 
     // | ------------------ initialize subscribers ----------------- |
     // Advertive Publishers
@@ -141,7 +174,7 @@ namespace ros1_gremsy
     timer_controller_ = nh.createTimer(ros::Rate(config_.goal_push_rate), &GremsyDriver::callbackTimerGremsyDriver, this);
     timer_status_ = nh.createTimer(ros::Rate(config_.state_poll_rate), &GremsyDriver::gimbalStateTimerCallback, this);
 
-    ss_set_gimbal_attitude_ = nh.advertiseService("svs/set_gimbal_mode", &GremsyDriver::setGimbalAttitude, this);
+    ss_set_gimbal_attitude_ = nh.advertiseService("svs/set_gimbal_attitude", &GremsyDriver::setGimbalAttitude, this);
     ss_set_gimbal_mode_ = nh.advertiseService("svs/set_gimbal_mode", &GremsyDriver::setGimbalMode, this);
 
     /* Define SDK objects */
@@ -356,20 +389,46 @@ namespace ros1_gremsy
     gimbal_attitude_pub_quat_.publish(
         tf2::toMsg(convertYXZtoQuaternion(gimbal_attitude_msg.vector.x, gimbal_attitude_msg.vector.y, gimbal_attitude_msg.vector.z)));
 
-    //Set of position of gimbal within the fcu (translation)
-    geometry_msgs::TransformStamped transform;
-    transform.header.stamp            = ros::Time::now();
-    transform.header.frame_id         = _gimbal_link_frame_; 
-    transform.child_frame_id          = _gimbal_frame_; 
-    transform.transform.translation.x = 0.11;
-    transform.transform.translation.y = 0.0;
-    transform.transform.translation.z = -0.239;
+    //Gimbal Yaw TF 
+    geometry_msgs::TransformStamped yaw_transform;
+    yaw_transform.header.stamp            = ros::Time::now();
+    yaw_transform.header.frame_id         = _gimbal_link_frame_; 
+    yaw_transform.child_frame_id          = _gimbal_yaw_frame_; 
+    yaw_transform.transform.translation.x = _yaw_frame_.x; 
+    yaw_transform.transform.translation.y = _yaw_frame_.y; 
+    yaw_transform.transform.translation.z = _yaw_frame_.z; 
 
     //Set the rotation based on the current attitude
-    transform.transform.rotation = tf2::toMsg(convertYXZtoQuaternion(gimbal_attitude_msg.vector.x, gimbal_attitude_msg.vector.y, gimbal_attitude_msg.vector.z));
+    yaw_transform.transform.rotation = tf2::toMsg(convertYXZtoQuaternion(0,0,gimbal_attitude_msg.vector.z));
+    tf_broadcaster_.sendTransform(yaw_transform);
 
-    tf_broadcaster_.sendTransform(transform);
+    //Gimbal Roll TF 
+    geometry_msgs::TransformStamped roll_transform;
+    roll_transform.header.stamp            = ros::Time::now();
+    roll_transform.header.frame_id         = _gimbal_yaw_frame_; 
+    roll_transform.child_frame_id          = _gimbal_roll_frame_; 
+    roll_transform.transform.translation.x = _roll_frame_.x; 
+    roll_transform.transform.translation.y = _roll_frame_.y; 
+    roll_transform.transform.translation.z = _roll_frame_.z; 
 
+    //Set the rotation based on the current attitude
+    roll_transform.transform.rotation = tf2::toMsg(convertYXZtoQuaternion(gimbal_encoder_msg.vector.x,0,0));
+    tf_broadcaster_.sendTransform(roll_transform);
+
+    //Gimbal Pitch TF 
+    geometry_msgs::TransformStamped pitch_transform;
+    pitch_transform.header.stamp            = ros::Time::now();
+    pitch_transform.header.frame_id         = _gimbal_roll_frame_; 
+    pitch_transform.child_frame_id          = _gimbal_pitch_frame_; 
+    pitch_transform.transform.translation.x = _pitch_frame_.x; 
+    pitch_transform.transform.translation.y = _pitch_frame_.y; 
+    pitch_transform.transform.translation.z = _pitch_frame_.z; 
+
+    //Set the rotation based on the current attitude
+    pitch_transform.transform.rotation = tf2::toMsg(convertYXZtoQuaternion(0,gimbal_attitude_msg.vector.y,0));
+    tf_broadcaster_.sendTransform(pitch_transform);
+
+    //Publish diagnostics
     ros1_gremsy::GimbalDiagnostics diagnostics_msg;
     diagnostics_msg.stamp               = ros::Time::now();
     diagnostics_msg.encoder_values      = gimbal_encoder_msg;

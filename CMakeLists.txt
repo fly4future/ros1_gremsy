@@ -12,6 +12,7 @@ set(CATKIN_DEPENDENCIES
     dynamic_reconfigure
     sensor_msgs
     mrs_msgs
+    mrs_lib
     geometry_msgs
     message_generation
     message_runtime
