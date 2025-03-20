@@ -45,19 +45,12 @@ generate_messages(
     geometry_msgs
 )
 catkin_package(
-  INCLUDE_DIRS include
   LIBRARIES ${LIBRARIES}
   CATKIN_DEPENDS ${CATKIN_DEPENDENCIES}
 )
 
 include_directories(
- include
  ${catkin_INCLUDE_DIRS}
-)
-
-include_directories(
- src/gSDK/src/mavlink/include/mavlink/v2.0
- src/gSDK/src/
 )
 
 add_library(GremsyDriverNode
@@ -69,25 +62,10 @@ add_library(GremsyDriverNode
     src/gSDK/src/gimbal_protocol_v2.cpp
 )
 
-set(SOURCES 
-  src/ros1_gremsy.cpp 
-  src/gSDK/src/serial_port.cpp 
-  src/gSDK/src/gimbal_interface.cpp
-  src/gSDK/src/gimbal_protocol.cpp
-  src/gSDK/src/gimbal_protocol_v1.cpp
-  src/gSDK/src/gimbal_protocol_v2.cpp
-)
-
 target_include_directories(GremsyDriverNode PUBLIC
   src/gSDK/src/mavlink/include/mavlink/v2.0
   src/gSDK/src
 )
-
-add_executable(GimbalNode ${SOURCES})
-
-add_dependencies(GimbalNode ${PROJECT_NAME}_gencfg)
-
-target_link_libraries(GimbalNode ${catkin_LIBRARIES})
 
 target_link_libraries(GremsyDriverNode
   ${catkin_LIBRARIES}
