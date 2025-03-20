@@ -1,5 +1,5 @@
 # ROS Gremsy Gimbal Interface
-A ROS interface to control Gremsy gimbals. Based on the [gSDK_V3_alpha]([https://github.com/Gremsy/gSDK](https://github.com/Gremsy/gSDK/tree/gSDK_V3_alpha)) interface and the MavLink protocol.
+A ROS interface to control Gremsy gimbals. Based on the [gSDK_V3_alpha](https://github.com/Gremsy/gSDK/tree/gSDK_V3_alpha) interface and the MavLink protocol.
 
 > Disclaimer: This software package is not officially developed by or related to Gremsy.
 
