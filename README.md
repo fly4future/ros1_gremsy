@@ -49,7 +49,7 @@ roslaunch ros1_gremsy gremsy_nodelet.launch
 The earth frame convention used is in ENU coordinates. (X: East, Y: North Z: Up).
 
 ### Body Frame
-The body frame is in the **earth frame**, the **X-axis** pointing forward the UAV heading, the **Y-axis** pointing to the left, and the **Z-axis** pointing up.
+The body frame has the **X-axis** pointing forward the UAV heading, the **Y-axis** pointing to the left, and the **Z-axis** pointing up.
 
 ### Work Modes
 When using Angle Mode, the gimbal moves to the target attitude in **earth frame** if operating in Lock mode. Otherwise, the gimbal moves to the target attitude in the Body frame if operating in Follow mode.
@@ -60,7 +60,7 @@ When using Angle Mode, the gimbal moves to the target attitude in **earth frame*
 
 ### Messages:
 The node publishes:
-- `/ros1_gremsy/diagnostics`:
+- `/diagnostics`:
   - **setpoint**: with a [geometry_msgs/Vector3](http://docs.ros.org/melodic/api/geometry_msgs/html/msg/Vector3.html) message with current gimbal goal.
   - **encoder_values**: with a [geometry_msgs/Vector3](http://docs.ros.org/melodic/api/geometry_msgs/html/msg/Vector3.html) message containing the encode values around the x (roll), y (pitch) and z (yaw) axis.
   - **attitude_quaternion**:  with a [geometry_msgs/Quaternion](http://docs.ros.org/melodic/api/geometry_msgs/html/msg/Quaternion.html) message representing the camera mount orientation in Quaternion representation, in the global frame except for the yaw axis which is provided relative to the gimbals mount on the vehicle or robot.
@@ -75,9 +75,9 @@ The node publishes:
   - **gimbal/roll**: Dynamic TF relative to the `gimbal/yaw` frame.
   - **gimbal/pitch**: Dynamic TF relative to the `gimbal/roll` frame.
 ### Services:
-- `/ros1_gremsy/set_gimbal_attitude` expects a message containing the desired angles for each axis: roll, pitch, yaw (float64).
-- `/ros1_gremsy/goals` expects a [geometry_msgs/Vector3Stamped](http://docs.ros.org/melodic/api/geometry_msgs/html/msg/Vector3Stamped.html) message containing the desired angles for each axis. The frame for each axis (local or global), as well as the stabilization mode, can be configured in the `config.yaml` file.
-- `/ros1_gremsy/set_gimbal_mode` expects a string message for the desired operation mode (follow/lock).
+- `/set_gimbal_attitude` expects a message containing the desired angles for each axis: roll, pitch, yaw (float64).
+- `/goals` expects a [geometry_msgs/Vector3Stamped](http://docs.ros.org/melodic/api/geometry_msgs/html/msg/Vector3Stamped.html) message containing the desired angles for each axis. The frame for each axis (local or global), as well as the stabilization mode, can be configured in the `config.yaml` file.
+- `/set_gimbal_mode` expects a string message for the desired operation mode (follow/lock).
 
 
 
