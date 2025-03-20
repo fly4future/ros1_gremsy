@@ -1,6 +1,6 @@
 time    stamp
 string  mode
-geometry_msgs/Vector3Stamped setpoint
-geometry_msgs/Vector3Stamped encoder_values
-geometry_msgs/Vector3Stamped attitude_euler
+geometry_msgs/Vector3 setpoint
+geometry_msgs/Vector3 encoder_values
+geometry_msgs/Vector3 attitude_euler
 geometry_msgs/Quaternion     attitude_quaternion

@@ -73,16 +73,13 @@ namespace ros1_gremsy
     ros1_gremsy::ROSGremsyConfig config_;
 
     // Goals
-    geometry_msgs::Vector3Stamped goals_{};
+    geometry_msgs::Vector3 goals_{};
     std::string gimbal_mode_;
     double gimbal_mount_orientation_yaw = 0;
 
     // | --------------------- subscribers -------------------- |
     ros::Subscriber goal_sub_;
     // | --------------------- publishers -------------------- |
-    ros::Publisher encoder_pub_;
-    ros::Publisher gimbal_attitude_pub_quat_;
-    ros::Publisher gimbal_attitude_pub_euler_;
     ros::Publisher gimbal_diagnostics_;
 
     tf2_ros::TransformBroadcaster tf_broadcaster_;
@@ -97,7 +94,7 @@ namespace ros1_gremsy
     void gimbalStateTimerCallback(const ros::TimerEvent& event);
     sensor_msgs::Imu convertImuMavlinkMessageToROSMessage(Gimbal_Interface::imu_t message);
     Eigen::Quaterniond convertYXZtoQuaternion(double roll, double pitch, double yaw);
-    void setGoalsCallback(geometry_msgs::Vector3Stamped message);
+    void setGoalsCallback(geometry_msgs::Vector3 message);
     void reconfigureCallback(ros1_gremsy::ROSGremsyConfig& config, uint32_t level);
     bool setGimbalAttitude(ros1_gremsy::SetGimbalAttitude::Request& req, ros1_gremsy::SetGimbalAttitude::Response& res);
     bool setGimbalMode(mrs_msgs::SetInt::Request& req, mrs_msgs::SetInt::Response& res);
@@ -123,14 +120,6 @@ namespace ros1_gremsy
     f = boost::bind(&GremsyDriver::reconfigureCallback, this, _1, _2);
     server.setCallback(f);
 
-    // Load params
-    _gimbal_sdk_device_id_ = config_.device;
-    _gimbal_sdk_baudrate_ = config_.baudrate;
-    _gimbal_sdk_mode_ = config_.gimbal_mode;
-    _rate_timer_controller_ = config_.goal_push_rate;
-    _state_timer_controller_ = config_.state_poll_rate;
-
-
     mrs_lib::ParamLoader param_loader(nh, "GremsyDriver");
 
     param_loader.loadParam("config", _config_);
@@ -146,6 +135,12 @@ namespace ros1_gremsy
     param_loader.loadParam("gimbal_pitch_frame", _gimbal_pitch_frame_);
     param_loader.loadParam("gimbal_yaw_frame", _gimbal_yaw_frame_);
     
+    param_loader.loadParam("device",  _gimbal_sdk_device_id_);
+    param_loader.loadParam("baudrate",  _gimbal_sdk_baudrate_);
+    param_loader.loadParam("gimbal_mode",  _gimbal_sdk_mode_);
+    param_loader.loadParam("goal_push_rate",  _rate_timer_controller_);
+    param_loader.loadParam("state_poll_rate", _state_timer_controller_);
+
     param_loader.setPrefix("frames/");
     param_loader.loadParam("yaw_frame/x",     _yaw_frame_.x);
     param_loader.loadParam("yaw_frame/y",     _yaw_frame_.y);
@@ -161,18 +156,14 @@ namespace ros1_gremsy
 
     // | ------------------ initialize subscribers ----------------- |
     // Advertive Publishers
-    encoder_pub_ = nh.advertise<geometry_msgs::Vector3Stamped>("out/encoder_values", 1);
-    gimbal_attitude_pub_quat_ = nh.advertise<geometry_msgs::Quaternion>("out/attitude_quaternion", 1);
-    gimbal_attitude_pub_euler_ = nh.advertise<geometry_msgs::Vector3Stamped>("out/attitude_euler", 1);
     gimbal_diagnostics_ = nh.advertise<ros1_gremsy::GimbalDiagnostics>("out/diagnostics", 1);
 
     // Register Subscribers
     goal_sub_ = nh.subscribe("in/goal", 1, &GremsyDriver::setGoalsCallback, this);
 
-    ROS_INFO_STREAM("[GremsyDriver]: Config rate: " << config_.goal_push_rate);
     // | -------------------- initialize timers ------------------- |
-    timer_controller_ = nh.createTimer(ros::Rate(config_.goal_push_rate), &GremsyDriver::callbackTimerGremsyDriver, this);
-    timer_status_ = nh.createTimer(ros::Rate(config_.state_poll_rate), &GremsyDriver::gimbalStateTimerCallback, this);
+    timer_controller_ = nh.createTimer(ros::Rate(_rate_timer_controller_), &GremsyDriver::callbackTimerGremsyDriver, this);
+    timer_status_ = nh.createTimer(ros::Rate(_state_timer_controller_), &GremsyDriver::gimbalStateTimerCallback, this);
 
     ss_set_gimbal_attitude_ = nh.advertiseService("svs/set_gimbal_attitude", &GremsyDriver::setGimbalAttitude, this);
     ss_set_gimbal_mode_ = nh.advertiseService("svs/set_gimbal_mode", &GremsyDriver::setGimbalMode, this);
@@ -249,9 +240,9 @@ namespace ros1_gremsy
     ROS_INFO("[GimbalController]: Attitude request received - Roll: %f, Pitch: %f, Yaw: %f", req.roll, req.pitch, req.yaw);
     std::scoped_lock lock(mutex_gimbal_);
     {
-      goals_.vector.x = req.roll;
-      goals_.vector.y = req.pitch;
-      goals_.vector.z = req.yaw;
+      goals_.x = req.roll;
+      goals_.y = req.pitch;
+      goals_.z = req.yaw;
     }
 
     res.success = true;
@@ -336,11 +327,11 @@ namespace ros1_gremsy
     std::scoped_lock lock(mutex_gimbal_);
     //Pitch and Yaw negative to follow MRS Body Frame convention (ENU)
     if (gimbal_mode_ == "follow") {
-      gimbal_interface_->set_gimbal_rotation_sync(-goals_.vector.y, goals_.vector.x, -goals_.vector.z);
+      gimbal_interface_->set_gimbal_rotation_sync(-goals_.y, goals_.x, -goals_.z);
     }
     else
     {
-      gimbal_interface_->set_gimbal_rotation_sync(goals_.vector.y, goals_.vector.x, goals_.vector.z);
+      gimbal_interface_->set_gimbal_rotation_sync(goals_.y, goals_.x, goals_.z);
     }
   }
 
@@ -363,31 +354,23 @@ namespace ros1_gremsy
     // Publish Gimbal Encoder Values
     auto gimbal_encoder_values = gimbal_interface_->get_gimbal_encoder();
 
-    geometry_msgs::Vector3Stamped gimbal_encoder_msg;
-    gimbal_encoder_msg.header.stamp =  ros::Time::now();
-    gimbal_encoder_msg.vector.x     =   gimbal_encoder_values.roll;
+    geometry_msgs::Vector3 gimbal_encoder_msg;
+    gimbal_encoder_msg.x     =   gimbal_encoder_values.roll;
     //The pitch encoder values are given with opposite direction, so we only need to reverse the yaw, 
     //to be consistent with our ENU convention. 
-    gimbal_encoder_msg.vector.y     =   gimbal_encoder_values.pitch;
-    gimbal_encoder_msg.vector.z     =  -gimbal_encoder_values.yaw;
-    // Publish encoder values
-    encoder_pub_.publish(gimbal_encoder_msg);
-        // Get Mount Orientation
+    gimbal_encoder_msg.y     =   gimbal_encoder_values.pitch;
+    gimbal_encoder_msg.z     =  -gimbal_encoder_values.yaw;
+    // Get Mount Orientation
     auto gimbal_attitude = gimbal_interface_->get_gimbal_attitude();
     // Publish Camera Mount Orientation in global frame
-    geometry_msgs::Vector3Stamped gimbal_attitude_msg;
-    gimbal_attitude_msg.header.stamp =  ros::Time::now();
-    gimbal_attitude_msg.vector.x     =  gimbal_attitude.roll;
-    gimbal_attitude_msg.vector.y     = -gimbal_attitude.pitch;
-    gimbal_attitude_msg.vector.z     = -gimbal_attitude.yaw;
+    geometry_msgs::Vector3 gimbal_attitude_msg;
+    gimbal_attitude_msg.x     =  gimbal_attitude.roll;
+    gimbal_attitude_msg.y     = -gimbal_attitude.pitch;
+    gimbal_attitude_msg.z     = -gimbal_attitude.yaw;
 
     /* ROS_INFO_STREAM("[GremsyDriver]: Yaw is : "<< gimbal_attitude_msg.vector.z); */
     auto gimbal_attitude_quaternion_msg =
-        tf2::toMsg(convertYXZtoQuaternion(gimbal_attitude_msg.vector.x, gimbal_attitude_msg.vector.y, gimbal_attitude_msg.vector.z));
-
-    gimbal_attitude_pub_euler_.publish(gimbal_attitude_msg);
-    gimbal_attitude_pub_quat_.publish(
-        tf2::toMsg(convertYXZtoQuaternion(gimbal_attitude_msg.vector.x, gimbal_attitude_msg.vector.y, gimbal_attitude_msg.vector.z)));
+        tf2::toMsg(convertYXZtoQuaternion(gimbal_attitude_msg.x, gimbal_attitude_msg.y, gimbal_attitude_msg.z));
 
     //Gimbal Yaw TF 
     geometry_msgs::TransformStamped yaw_transform;
@@ -399,7 +382,7 @@ namespace ros1_gremsy
     yaw_transform.transform.translation.z = _yaw_frame_.z; 
 
     //Set the rotation based on the current attitude
-    yaw_transform.transform.rotation = tf2::toMsg(convertYXZtoQuaternion(0,0,gimbal_attitude_msg.vector.z));
+    yaw_transform.transform.rotation = tf2::toMsg(convertYXZtoQuaternion(0,0,gimbal_attitude_msg.z));
     tf_broadcaster_.sendTransform(yaw_transform);
 
     //Gimbal Roll TF 
@@ -412,7 +395,7 @@ namespace ros1_gremsy
     roll_transform.transform.translation.z = _roll_frame_.z; 
 
     //Set the rotation based on the current attitude
-    roll_transform.transform.rotation = tf2::toMsg(convertYXZtoQuaternion(gimbal_encoder_msg.vector.x,0,0));
+    roll_transform.transform.rotation = tf2::toMsg(convertYXZtoQuaternion(gimbal_encoder_msg.x,0,0));
     tf_broadcaster_.sendTransform(roll_transform);
 
     //Gimbal Pitch TF 
@@ -425,7 +408,7 @@ namespace ros1_gremsy
     pitch_transform.transform.translation.z = _pitch_frame_.z; 
 
     //Set the rotation based on the current attitude
-    pitch_transform.transform.rotation = tf2::toMsg(convertYXZtoQuaternion(0,gimbal_attitude_msg.vector.y,0));
+    pitch_transform.transform.rotation = tf2::toMsg(convertYXZtoQuaternion(0,gimbal_attitude_msg.y,0));
     tf_broadcaster_.sendTransform(pitch_transform);
 
     //Publish diagnostics
@@ -482,7 +465,7 @@ namespace ros1_gremsy
 
   /* setGoalsCallback() //{ */
 
-  void GremsyDriver::setGoalsCallback(geometry_msgs::Vector3Stamped message)
+  void GremsyDriver::setGoalsCallback(geometry_msgs::Vector3 message)
   {
     ROS_INFO("[%s]: Received message ", ros::this_node::getName().c_str());
     std::scoped_lock lock(mutex_gimbal_);
