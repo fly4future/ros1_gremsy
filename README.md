@@ -61,6 +61,7 @@ When using Angle Mode, the gimbal moves to the target attitude in **earth frame*
 ### Messages:
 The node publishes:
 - `/ros1_gremsy/diagnostics`:
+  - **setpoint**: with a [geometry_msgs/Vector3](http://docs.ros.org/melodic/api/geometry_msgs/html/msg/Vector3.html) message with current gimbal goal.
   - **encoder_values**: with a [geometry_msgs/Vector3](http://docs.ros.org/melodic/api/geometry_msgs/html/msg/Vector3.html) message containing the encode values around the x (roll), y (pitch) and z (yaw) axis.
   - **attitude_quaternion**:  with a [geometry_msgs/Quaternion](http://docs.ros.org/melodic/api/geometry_msgs/html/msg/Quaternion.html) message representing the camera mount orientation in Quaternion representation, in the global frame except for the yaw axis which is provided relative to the gimbals mount on the vehicle or robot.
   - **attitude_euler**:  with a [geometry_msgs/Vector3
