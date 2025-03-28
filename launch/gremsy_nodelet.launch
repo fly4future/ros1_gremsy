@@ -51,7 +51,7 @@
      
     </node>
     <!-- Static gimbal link publisher -->
-    <node pkg="tf2_ros" type="static_transform_publisher" name="gimbal_link" args="0.11 0.0 -0.10 0.0 0.0 0.0 $(arg fcu_frame) $(arg gimbal_link_frame)" />
+    <node pkg="tf2_ros" type="static_transform_publisher" name="gimbal_link" args="0.11 0.0 -0.095 0.0 0.0 0.0 $(arg fcu_frame) $(arg gimbal_link_frame)" />
 
   </group>
 </launch>

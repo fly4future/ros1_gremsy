@@ -11,12 +11,12 @@ frames:
   yaw_frame:
     x:  0.0
     y:  0.0
-    z: -0.07 
+    z: -0.065 
 #Translation from yaw frame 
   roll_frame:
     x: -0.082
     y:  0.0
-    z: -0.10 
+    z: -0.105 
 #Translation from roll frame 
   pitch_frame:
     x: 0.10
